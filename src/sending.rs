@@ -1,6 +1,7 @@
 use bech32::{FromBase32, ToBase32};
 
 use secp256k1::{PublicKey, Secp256k1, SecretKey, XOnlyPublicKey};
+use core::fmt;
 use std::collections::HashMap;
 
 use crate::{
@@ -36,6 +37,12 @@ impl SilentPaymentAddress {
             is_testnet,
             version,
         })
+    }
+}
+
+impl fmt::Display for SilentPaymentAddress {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", <SilentPaymentAddress as Into<String>>::into(self.clone()))
     }
 }
 
