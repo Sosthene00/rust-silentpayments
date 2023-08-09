@@ -11,6 +11,7 @@ pub mod utils;
 pub mod error;
 
 use crate::error::Error;
+const NULL_LABEL: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 
 #[derive(Debug, Eq, PartialEq)]
 struct Label {s: Scalar}
@@ -22,6 +23,10 @@ impl Label {
     
     pub fn as_inner(&self) -> &Scalar {
         &self.s
+    }
+
+    pub fn as_string(&self) -> String {
+        hex::encode(self.as_inner().to_be_bytes())
     }
 }
 
@@ -77,13 +82,13 @@ pub struct SilentPayment {
     version: u8,
     scan_privkey: SecretKey,
     spend_privkey: SecretKey,
-    labels: HashSet<Label>,
+    labels: HashMap<PublicKey, Label>,
     is_testnet: bool,
 }
 
 impl SilentPayment {
     pub fn new(version: u32, scan_privkey: SecretKey, spend_privkey: SecretKey, is_testnet: bool) -> Result<Self, Error> {
-        let labels: HashSet<Label> = HashSet::new();
+        let labels: HashMap<PublicKey, Label> = HashMap::new();
 
         // Check version, we just refuse anything other than 0 for now
         if version != 0 {
@@ -100,9 +105,14 @@ impl SilentPayment {
     }
 
     /// Takes an hexstring that must be exactly 32B and must be on the order of the curve
+    /// Returns a bool on success, `true` if the label was new, `false` if it already existed in our list
     pub fn add_label(&mut self, label: String) -> Result<bool, Error> {
+        let secp = Secp256k1::new();
+
         let m: Label = label.try_into()?;
-        Ok(self.labels.insert(m))
+        let secret = SecretKey::from_slice(&m.as_inner().to_be_bytes())?;
+        let old_value = self.labels.insert(secret.public_key(&secp), m);
+        Ok(old_value.is_none())
     }
 
     fn encode_silent_payment_address(
@@ -152,10 +162,9 @@ impl SilentPayment {
             true => "tsp"
         };
 
-        let no_label: String = hex::ToHex::encode_hex(&[0;32]);
-        receiving_addresses.insert(no_label, self.encode_silent_payment_address(Some(hrp), None));
+        receiving_addresses.insert(NULL_LABEL.to_owned(), self.encode_silent_payment_address(Some(hrp), None));
         for label in labels {
-            let _inserted = self.add_label(label.clone())?;
+            let _is_new_label = self.add_label(label.clone())?;
             receiving_addresses.insert(
                 label.clone(),
                 self.create_labeled_silent_payment_address(
