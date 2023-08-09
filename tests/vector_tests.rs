@@ -26,6 +26,8 @@ mod tests {
         },
     };
 
+    const IS_TESTNET: bool = false;
+
     #[test]
     fn test_with_test_vectors() {
         let testdata = utils::read_file();
@@ -88,11 +90,11 @@ mod tests {
             let b_scan = SecretKey::from_str(&given.scan_priv_key).unwrap();
             let b_spend = SecretKey::from_str(&given.spend_priv_key).unwrap();
 
-            let mut sp_receiver = SilentPayment::new(0, b_scan, b_spend).unwrap();
+            let mut sp_receiver = SilentPayment::new(0, b_scan, b_spend, IS_TESTNET).unwrap();
 
             let labels = given.labels.iter().map(|l| l.1.to_owned()).collect();
 
-            let receiving_addresses = sp_receiver.get_receiving_addresses(labels, false).unwrap();
+            let receiving_addresses = sp_receiver.get_receiving_addresses(labels).unwrap();
 
             let set1: HashSet<_> = receiving_addresses.iter().map(|r| r.1).collect();
             let set2: HashSet<_> = expected.addresses.iter().collect();

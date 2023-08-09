@@ -78,10 +78,11 @@ pub struct SilentPayment {
     scan_privkey: SecretKey,
     spend_privkey: SecretKey,
     labels: HashSet<Label>,
+    is_testnet: bool,
 }
 
 impl SilentPayment {
-    pub fn new(version: u32, scan_privkey: SecretKey, spend_privkey: SecretKey) -> Result<Self, Error> {
+    pub fn new(version: u32, scan_privkey: SecretKey, spend_privkey: SecretKey, is_testnet: bool) -> Result<Self, Error> {
         let labels: HashSet<Label> = HashSet::new();
 
         // Check version, we just refuse anything other than 0 for now
@@ -94,6 +95,7 @@ impl SilentPayment {
             scan_privkey,
             spend_privkey,
             labels,
+            is_testnet,
         })
     }
 
@@ -142,11 +144,10 @@ impl SilentPayment {
     pub fn get_receiving_addresses(
         &mut self,
         labels: Vec<String>,
-        is_testnet: bool
     ) -> Result<HashMap<String, String>, Error> {
         let mut receiving_addresses: HashMap<String, String> = HashMap::new();
 
-        let hrp = match is_testnet {
+        let hrp = match self.is_testnet {
             false => "sp",
             true => "tsp"
         };
