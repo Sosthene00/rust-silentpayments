@@ -1,30 +1,23 @@
 #![allow(non_snake_case)]
 mod common;
 
-use silentpayments::receiving;
-
 #[cfg(test)]
 mod tests {
     use std::{collections::{HashSet, HashMap}, str::FromStr};
 
-    use secp256k1::{SecretKey, PublicKey, Scalar, Secp256k1};
+    use secp256k1::{SecretKey, PublicKey, Scalar};
     use silentpayments::sending::{decode_scan_pubkey, generate_recipient_pubkeys};
 
     use silentpayments::SilentPayment;
-    use crate::{
-        common::{
+    use crate::common::{
             structs::TestData,
             utils::{
                 self, decode_input_pub_keys, decode_outpoints,
                 decode_outputs_to_check, decode_priv_keys, decode_recipients,
                 get_a_sum_secret_keys, hash_outpoints, compute_ecdh_shared_secret,
             },
-        },
-        receiving::{
-            get_A_sum_public_keys, scanning,
-            verify_and_calculate_signatures,
-        },
-    };
+            verify_and_calculate_signatures
+        };
 
     const IS_TESTNET: bool = false;
 
@@ -76,9 +69,9 @@ mod tests {
             assert_eq!(sending_outputs, expected_output_addresses);
         }
 
-        for receivingtest in &test_case.receiving {
-            let given = &receivingtest.given;
-            let expected = &receivingtest.expected;
+        for receivingtest in test_case.receiving {
+            let given = receivingtest.given;
+            let mut expected = receivingtest.expected;
 
             let receiving_outputs: HashSet<String> = given.outputs.iter().cloned().collect();
 
@@ -110,17 +103,29 @@ mod tests {
 
             let input_pub_keys = decode_input_pub_keys(&given.input_pub_keys);
 
-            let A_sum = get_A_sum_public_keys(&input_pub_keys).unwrap();
+            for (_, label) in &given.labels {
+                sp_receiver.add_label(label.to_owned()).unwrap();
+            }
+            let add_to_wallet = sp_receiver.scan_for_outputs(
+                outpoints,
+                input_pub_keys,
+                outputs_to_check,
+            ).unwrap();
 
-            let labels = match &given.labels.len() {
-                0 => None,
-                _ => Some(&given.labels),
-            };
+            let privkeys: Vec<SecretKey> = add_to_wallet.iter().flat_map(|(_, list)| {
+                let mut ret: Vec<SecretKey> = vec![];
+                for l in list {
+                    ret.push(SecretKey::from_str(l).unwrap());
+                }
+                ret
+            })
+            .collect();
 
-            let mut add_to_wallet =
-                scanning(b_scan, b_spend.public_key(&Secp256k1::new()), A_sum, outpoints, outputs_to_check, labels).unwrap();
+            let mut res = verify_and_calculate_signatures(privkeys, b_spend).unwrap();
 
-            let res = verify_and_calculate_signatures(&mut add_to_wallet, b_spend).unwrap();
+            res.sort_by_key(|output| output.pub_key.clone());
+            expected.outputs.sort_by_key(|output| output.pub_key.clone());
+
             assert_eq!(res, expected.outputs);
         }
     }

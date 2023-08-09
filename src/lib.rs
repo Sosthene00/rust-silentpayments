@@ -1,8 +1,13 @@
 #![allow(non_snake_case, dead_code)]
 use std::{hash::{Hash, Hasher}, collections::{HashSet, HashMap}};
 
-use secp256k1::{Secp256k1, SecretKey, PublicKey, Scalar};
+use secp256k1::{Secp256k1, SecretKey, PublicKey, XOnlyPublicKey, Scalar, Parity};
 use bech32::ToBase32;
+use structs::Outpoint;
+use utils::hash_outpoints;
+
+use crate::receiving::{get_A_sum_public_keys, calculate_ecdh_secret, calculate_t_n, calculate_P_n};
+
 
 pub mod receiving;
 pub mod sending;
@@ -176,6 +181,108 @@ impl SilentPayment {
 
         Ok(receiving_addresses)
     }
+
+    /// Scans for outputs by iterating through a set of public keys to check for matches.
+    ///
+    /// It first calculates a shared secret using the outpoints, input keys, and the scanning private key.
+    /// Then, it creates a loop, where for each iteration, it computes a new tweak based on the shared secret and the iteration number.
+    /// The tweaked spend private key is then used to derive a new public key.
+    ///
+    /// The function checks if this public key matches any of the public keys to check. If a match is found, 
+    /// the tweaked private key is added to the value to return. 
+    /// 
+    /// If we have registered labels then we compute the diff between the new public key and each output, and see if 
+    /// any of those diffs match one of the labels. If that's the case we tweak the new private key with the label
+    /// and add it the our return value.
+    ///
+    /// The function stops iterating when one loop doesn't found any match with the public keys to scan.
+    ///
+    /// # Arguments
+    ///
+    /// * `outpoints` - A `HashSet` of outpoints (a transaction hash and an index) to be included in the computation of the shared secret.
+    /// * `input_keys` - A `Vec` of input keys used to calculate the sum of public keys, which is then used in the computation of the shared secret.
+    /// * `pubkeys_to_check` - A `HashSet` of public keys to check for matches with the public key derived from the tweaked private key.
+    ///
+    /// # Returns
+    ///
+    /// If successful, the function returns a `Result` wrapping a `HashMap` of labels and a list of private keys (since the same label can have been paid many outputs in one transaction). If the length of the `HashMap` is 0, it simply means there are no outputs that belongs to us in this transaction.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    ///
+    /// * The calculation of the tweak, the addition of the tweak to the spend private key, or the derivation of the new public key fails.
+    /// * One of the public keys to scan can't be parsed into a valid x only public key.
+    /// * The computation of the difference between a public key to check and the new public key fails.
+    pub fn scan_for_outputs(
+        &self,
+        outpoints: HashSet<Outpoint>,
+        input_keys: Vec<PublicKey>,
+        pubkeys_to_check: Vec<XOnlyPublicKey>,
+    ) -> Result<HashMap<String, Vec<String>>, Error> {
+        let secp = secp256k1::Secp256k1::new();
+
+        let outpoints_hash = hash_outpoints(&outpoints).unwrap();
+        let A_sum = get_A_sum_public_keys(&input_keys).unwrap();
+
+        let ecdh_shared_secret = calculate_ecdh_secret(&A_sum, self.scan_privkey, outpoints_hash)?;
+
+        // for p in &pubkeys_to_check {
+        //     println!("{}", p);
+        // }
+
+        fn insert_new_key(
+            mut new_privkey: SecretKey, 
+            my_outputs: &mut HashMap<String, Vec<String>>, 
+            label: Option<&Label>
+        ) -> Result<SecretKey, Error> {
+            let label_string: String = match label {
+                Some(l) => {
+                    new_privkey = new_privkey.add_tweak(l.as_inner())?;
+                    l.as_string()
+                },
+                None => NULL_LABEL.to_owned(),
+            };
+
+            my_outputs.entry(label_string)
+                    .or_insert_with(Vec::new)
+                    .push(hex::encode(&new_privkey.secret_bytes()));
+
+            Ok(new_privkey)
+        }
+
+        let mut my_outputs: HashMap<String, Vec<String>> = HashMap::new();
+        let mut n: u32 = 0;
+        while my_outputs.len() == n as usize {
+            let t_n: Scalar = calculate_t_n(&ecdh_shared_secret, n)?;
+            let P_n: PublicKey = calculate_P_n(&self.spend_privkey.public_key(&secp), t_n)?;
+            println!("{}", P_n.x_only_public_key().0);
+            if pubkeys_to_check.iter().any(|p| p.eq(&P_n.x_only_public_key().0)) {
+                insert_new_key(self.spend_privkey.add_tweak(&t_n)?, &mut my_outputs, None)?;
+            } else if !self.labels.is_empty() {
+                // We need to take the negation of P_n, adding it is equivalent to substracting P_n
+                let P_n_negated: PublicKey = P_n.negate(&secp);
+                // then we substract P_n from each outputs to check and see if match a public key in our label list
+                pubkeys_to_check.iter().find_map(|p| {
+                    let even_output = p.public_key(Parity::Even);
+                    let odd_output = p.public_key(Parity::Odd);
+                    let even_diff = even_output.combine(&P_n_negated).ok()?;
+                    let odd_diff = odd_output.combine(&P_n_negated).ok()?;
+
+                    for diff in vec![even_diff, odd_diff] {
+                        if let Some(hit) = self.labels.get(&diff) {
+                            insert_new_key(self.spend_privkey.add_tweak(&t_n).ok()?, &mut my_outputs, Some(hit)).ok()?;
+                            return Some(());
+                        }
+                    }
+                    None
+                });
+            }
+            n += 1;
+        };
+        Ok(my_outputs) 
+    }
+
 }
 
 #[cfg(test)]
