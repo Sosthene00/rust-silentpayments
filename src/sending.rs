@@ -10,8 +10,8 @@ use crate::{
     Result,
 };
 
-#[derive(Copy, Clone, Debug)]
-struct SilentPaymentAddress {
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct SilentPaymentAddress {
     version: u8,
     scan_pubkey: PublicKey,
     m_pubkey: PublicKey,
