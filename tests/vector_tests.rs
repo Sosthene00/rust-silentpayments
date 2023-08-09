@@ -7,9 +7,10 @@ use silentpayments::receiving;
 mod tests {
     use std::{collections::{HashSet, HashMap}, str::FromStr};
 
-    use secp256k1::{SecretKey, PublicKey, Scalar};
+    use secp256k1::{SecretKey, PublicKey, Scalar, Secp256k1};
     use silentpayments::sending::{decode_scan_pubkey, generate_recipient_pubkeys};
 
+    use silentpayments::SilentPayment;
     use crate::{
         common::{
             structs::TestData,
@@ -20,7 +21,7 @@ mod tests {
             },
         },
         receiving::{
-            get_A_sum_public_keys, get_receiving_addresses, scanning,
+            get_A_sum_public_keys, scanning,
             verify_and_calculate_signatures,
         },
     };
@@ -86,14 +87,14 @@ mod tests {
 
             let b_scan = SecretKey::from_str(&given.scan_priv_key).unwrap();
             let b_spend = SecretKey::from_str(&given.spend_priv_key).unwrap();
-            let secp = secp256k1::Secp256k1::new();
-            let B_scan: PublicKey = b_scan.public_key(&secp);
-            let B_spend: PublicKey = b_spend.public_key(&secp);
 
-            let receiving_addresses =
-                get_receiving_addresses(B_scan, B_spend, &given.labels).unwrap();
+            let mut sp_receiver = SilentPayment::new(0, b_scan, b_spend).unwrap();
 
-            let set1: HashSet<_> = receiving_addresses.iter().collect();
+            let labels = given.labels.iter().map(|l| l.1.to_owned()).collect();
+
+            let receiving_addresses = sp_receiver.get_receiving_addresses(labels, false).unwrap();
+
+            let set1: HashSet<_> = receiving_addresses.iter().map(|r| r.1).collect();
             let set2: HashSet<_> = expected.addresses.iter().collect();
 
             // check that the receiving addresses generated are equal
@@ -115,7 +116,7 @@ mod tests {
             };
 
             let mut add_to_wallet =
-                scanning(b_scan, B_spend, A_sum, outpoints, outputs_to_check, labels).unwrap();
+                scanning(b_scan, b_spend.public_key(&Secp256k1::new()), A_sum, outpoints, outputs_to_check, labels).unwrap();
 
             let res = verify_and_calculate_signatures(&mut add_to_wallet, b_spend).unwrap();
             assert_eq!(res, expected.outputs);

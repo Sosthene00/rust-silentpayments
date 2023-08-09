@@ -12,68 +12,12 @@ use crate::{
     utils::{hash_outpoints, ser_uint32, Result},
 };
 
-pub fn get_receiving_addresses(
-    B_scan: PublicKey,
-    B_spend: PublicKey,
-    labels: &HashMap<String, String>,
-) -> Result<Vec<String>> {
-    let mut receiving_addresses: Vec<String> = vec![];
-    receiving_addresses.push(encode_silent_payment_address(B_scan, B_spend, None, None)?);
-    for (_, label) in labels {
-        receiving_addresses.push(create_labeled_silent_payment_address(
-            B_scan, B_spend, label, None, None,
-        )?);
-    }
-
-    Ok(receiving_addresses)
-}
-
 pub fn get_A_sum_public_keys(
     input: &Vec<PublicKey>,
 ) -> std::result::Result<PublicKey, secp256k1::Error> {
     let keys_refs: &Vec<&PublicKey> = &input.iter().collect();
 
     PublicKey::combine_keys(keys_refs)
-}
-
-fn encode_silent_payment_address(
-    B_scan: PublicKey,
-    B_m: PublicKey,
-    hrp: Option<&str>,
-    version: Option<u8>,
-) -> Result<String> {
-    let hrp = hrp.unwrap_or("sp");
-    let version = bech32::u5::try_from_u8(version.unwrap_or(0))?;
-
-    let B_scan_bytes = B_scan.serialize();
-    let B_m_bytes = B_m.serialize();
-
-    let mut data = [B_scan_bytes, B_m_bytes].concat().to_base32();
-
-    data.insert(0, version);
-
-    Ok(bech32::encode(hrp, data, bech32::Variant::Bech32m)?)
-}
-
-fn create_labeled_silent_payment_address(
-    B_scan: PublicKey,
-    B_spend: PublicKey,
-    m: &String,
-    hrp: Option<&str>,
-    version: Option<u8>,
-) -> Result<String> {
-    let bytes: [u8; 32] = hex::decode(m)?
-        .as_slice()
-        .try_into()
-        .map_err(|_| Error::GenericError("Wrong byte length".to_owned()))?;
-
-    let scalar = Scalar::from_be_bytes(bytes)?;
-    let secp = Secp256k1::new();
-    let G: PublicKey = SecretKey::from_slice(&Scalar::ONE.to_be_bytes())?.public_key(&secp);
-    let intermediate = G.mul_tweak(&secp, &scalar)?;
-    let B_m = intermediate.combine(&B_spend)?;
-
-    encode_silent_payment_address(B_scan, B_m, hrp, version)
 }
 
 fn calculate_P_n(B_spend: &PublicKey, t_n: [u8; 32]) -> Result<PublicKey> {
