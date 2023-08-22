@@ -13,7 +13,7 @@ use crate::{
     Error,
 };
 
-pub(crate) const NULL_LABEL: Label = Label { s: Scalar::ZERO };
+pub const NULL_LABEL: Label = Label { s: Scalar::ZERO };
 
 #[derive(Eq, PartialEq, Clone)]
 pub struct Label {
