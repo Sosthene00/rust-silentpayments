@@ -34,6 +34,7 @@ pub(crate) fn calculate_t_n(ecdh_shared_secret: &[u8; 33], n: u32) -> Result<Sca
     Ok(Scalar::from_be_bytes(sha256(&bytes))?)
 }
 
+#[cfg(feature = "receiving")]
 pub(crate) fn insert_new_key(
     mut new_privkey: SecretKey,
     my_outputs: &mut HashMap<Label, HashSet<SecretKey>>,
