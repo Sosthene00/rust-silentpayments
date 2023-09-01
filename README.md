@@ -2,15 +2,8 @@
 
 A rust implementation of BIP352: Silent Payments.
 
-## About
-
-**Warning: this crate is still new and is my first project doing elliptic curve cryptography!
-Even though it passes the tests provided in the official silent payments BIP,
-review it carefully before using this with mainnet funds.**
-
-This library supports creating and sending to silent payment addresses,
-building on [`secp256k1`](https://docs.rs/secp256k1/latest/secp256k1)
-`PublicKey` and `SecretKey` structs for the interface.
+Although this library passes all the tests provided in the silent payment BIP,
+it is still very new, so be careful when using this with real funds.
 
 There are two parts to this library: a sender part and a recipient part.
 
@@ -36,4 +29,4 @@ The library also supports labels. You can optionally add labels before scanning 
 
 The `tests/resources` folder contains a copy of the test vectors as of August 4th 2023.
 
-You can test the code using the test vectors by running `cargo test` 
+You can test the code using the test vectors by running `cargo test`.
