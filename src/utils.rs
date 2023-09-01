@@ -3,7 +3,7 @@ use std::io::Write;
 use hex::FromHex;
 use secp256k1::hashes::{sha256, Hash};
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+pub type Result<T> = std::result::Result<T, crate::error::Error>;
 
 pub fn sha256(message: &[u8]) -> [u8; 32] {
     sha256::Hash::hash(message).to_byte_array()
