@@ -1,9 +1,13 @@
 use bech32::{FromBase32, ToBase32};
 
 use secp256k1::{Parity, PublicKey, Scalar, Secp256k1, SecretKey};
-use std::collections::HashMap;
+use std::collections::{HashSet, HashMap};
 
-use crate::{error::Error, utils::{hash_outpoints, ser_uint32, sha256, Result}};
+use crate::{
+    error::Error, 
+    structs::Outpoint,
+    utils::{hash_outpoints, ser_uint32, sha256, Result
+}};
 
 struct SilentPaymentAddress {
     version: u8,
@@ -132,7 +136,7 @@ fn get_a_sum_secret_keys(input: &Vec<(SecretKey, bool)>) -> Result<SecretKey> {
 }
 
 pub fn create_outputs(
-    outpoints: &Vec<(String, u32)>,
+    outpoints: &HashSet<Outpoint>,
     input_priv_keys: &Vec<(SecretKey, bool)>,
     recipients: &Vec<(String, f32)>,
 ) -> Result<Vec<HashMap<String, f32>>> {
