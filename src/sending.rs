@@ -1,9 +1,109 @@
-use bech32::FromBase32;
+use bech32::{FromBase32, ToBase32};
 
 use secp256k1::{Parity, PublicKey, Scalar, Secp256k1, SecretKey};
 use std::collections::HashMap;
 
-use crate::utils::{hash_outpoints, ser_uint32, sha256, Result};
+use crate::{error::Error, utils::{hash_outpoints, ser_uint32, sha256, Result}};
+
+struct SilentPaymentAddress {
+    version: u8,
+    scan_pubkey: PublicKey,
+    m_pubkey: PublicKey,
+    is_testnet: bool,
+}
+
+impl SilentPaymentAddress {
+    pub fn new(
+        scan_pubkey: PublicKey,
+        m_pubkey: PublicKey,
+        is_testnet: bool,
+        version: u8,
+    ) -> Result<Self> {
+        if version != 0 {
+            return Err(Error::GenericError(
+                "Can't have other version than 0 for now".to_owned(),
+            ));
+        }
+
+        Ok(SilentPaymentAddress {
+            scan_pubkey,
+            m_pubkey,
+            is_testnet,
+            version,
+        })
+    }
+}
+
+impl TryFrom<&str> for SilentPaymentAddress {
+    type Error = Error;
+
+    fn try_from(addr: &str) -> Result<Self> {
+        let (hrp, data, _variant) = bech32::decode(&addr)?;
+
+        if data.len() != 107 {
+            return Err(Error::GenericError("Address length is wrong".to_owned()));
+        }
+
+        let version = data[0].to_u8();
+
+        let is_testnet = match hrp.as_str() {
+            "sp" => false,
+            "tsp" => true,
+            _ => {
+                return Err(Error::InvalidAddress(format!(
+                    "Wrong prefix, expected \"sp\" or \"tsp\", got \"{}\"",
+                    &hrp
+                )))
+            }
+        };
+
+        let data = Vec::<u8>::from_base32(&data[1..])?;
+
+        let scan_pubkey = PublicKey::from_slice(&data[..33])?;
+        let m_pubkey = PublicKey::from_slice(&data[33..])?;
+
+        SilentPaymentAddress::new(scan_pubkey, m_pubkey, is_testnet, version.into())
+    }
+}
+
+impl TryFrom<String> for SilentPaymentAddress {
+    type Error = Error;
+
+    fn try_from(addr: String) -> Result<Self> {
+        addr.as_str().try_into()
+    }
+}
+
+impl Into<String> for SilentPaymentAddress {
+    fn into(self) -> String {
+        let hrp = match self.is_testnet {
+            true => "tsp",
+            false => "sp",
+        };
+
+        let version = bech32::u5::try_from_u8(self.version).unwrap();
+
+        let B_scan_bytes = self.scan_pubkey.serialize();
+        let B_m_bytes = self.m_pubkey.serialize();
+
+        let mut data = [B_scan_bytes, B_m_bytes].concat().to_base32();
+
+        data.insert(0, version);
+
+        bech32::encode(hrp, data, bech32::Variant::Bech32m).unwrap()
+    }
+}
+
+fn decode_silent_payment_address(addr: &str) -> Result<(PublicKey, PublicKey)> {
+    let (_hrp, data, _variant) = bech32::decode(&addr)?;
+
+    let data = Vec::<u8>::from_base32(&data[1..])?;
+
+    let B_scan = PublicKey::from_slice(&data[..33])?;
+    let B_spend = PublicKey::from_slice(&data[33..])?;
+
+    Ok((B_scan, B_spend))
+}
 
 fn get_a_sum_secret_keys(input: &Vec<(SecretKey, bool)>) -> Result<SecretKey> {
     let secp = Secp256k1::new();
@@ -20,7 +120,7 @@ fn get_a_sum_secret_keys(input: &Vec<(SecretKey, bool)>) -> Result<SecretKey> {
         }
     }
 
-    let (head, tail) = negated_keys.split_first().ok_or("Empty input list")?;
+    let (head, tail) = negated_keys.split_first().ok_or(Error::GenericError("Empty input list".to_owned()))?;
 
     let result: Result<SecretKey> = tail
         .iter()
@@ -29,17 +129,6 @@ fn get_a_sum_secret_keys(input: &Vec<(SecretKey, bool)>) -> Result<SecretKey> {
         });
 
     result
-}
-
-fn decode_silent_payment_address(addr: &str) -> Result<(PublicKey, PublicKey)> {
-    let (_hrp, data, _variant) = bech32::decode(&addr)?;
-
-    let data = Vec::<u8>::from_base32(&data[1..])?;
-
-    let B_scan = PublicKey::from_slice(&data[..33])?;
-    let B_spend = PublicKey::from_slice(&data[33..])?;
-
-    Ok((B_scan, B_spend))
 }
 
 pub fn create_outputs(
@@ -94,4 +183,9 @@ pub fn create_outputs(
         }
     }
     Ok(result)
+}
+
+pub fn decode_scan_pubkey(silent_payment_address: String) -> Result<PublicKey> {
+    let address: SilentPaymentAddress = silent_payment_address.try_into()?;
+    Ok(address.scan_pubkey)
 }
