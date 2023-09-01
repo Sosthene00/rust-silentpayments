@@ -4,8 +4,9 @@ use secp256k1::{PublicKey, Secp256k1, SecretKey, XOnlyPublicKey};
 use std::collections::HashMap;
 
 use crate::{
-    error::Error, 
-    utils::{ser_uint32, sha256, Result}
+    error::Error,
+    utils::{ser_uint32, sha256},
+    Result,
 };
 
 struct SilentPaymentAddress {

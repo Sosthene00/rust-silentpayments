@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     receiving::{Label, NULL_LABEL},
-    error::Error, 
-    utils::Result,
+    Error, 
+    Result,
 };
 use secp256k1::{
     hashes::{sha256, Hash},

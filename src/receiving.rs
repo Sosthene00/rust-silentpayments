@@ -8,7 +8,8 @@ use std::{
 };
 
 use crate::{
-    utils::{calculate_P_n, calculate_t_n, insert_new_key, Result},
+    utils::{calculate_P_n, calculate_t_n, insert_new_key},
+    Result,
     Error,
 };
 
