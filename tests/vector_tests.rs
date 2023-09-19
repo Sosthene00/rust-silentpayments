@@ -16,12 +16,14 @@ mod tests {
     #[cfg(feature = "sending")]
     use silentpayments::sending::generate_multiple_recipient_pubkeys;
 
+    use silentpayments::utils::hash_outpoints;
+
     use crate::common::{
         structs::TestData,
         utils::{
             self, calculate_tweak_data_for_recipient, decode_input_pub_keys, decode_outpoints,
             decode_outputs_to_check, decode_priv_keys, decode_recipients, get_a_sum_secret_keys,
-            hash_outpoints, sender_calculate_partial_secret, verify_and_calculate_signatures, receiver_calculate_shared_secret
+            sender_calculate_partial_secret, verify_and_calculate_signatures, receiver_calculate_shared_secret
         },
     };
 
@@ -53,7 +55,7 @@ mod tests {
 
             let outpoints = decode_outpoints(&given.outpoints);
 
-            let outpoints_hash = hash_outpoints(&outpoints);
+            let outpoints_hash = hash_outpoints(&outpoints).unwrap();
 
             let silent_addresses = decode_recipients(&given.recipients);
 
@@ -125,7 +127,8 @@ mod tests {
             // to the expected addresses
             assert_eq!(set1, set2);
 
-            let tweak_data = calculate_tweak_data_for_recipient(&input_pub_keys, &outpoints);
+            let outpoints_hash = hash_outpoints(&outpoints).unwrap();
+            let tweak_data = calculate_tweak_data_for_recipient(&input_pub_keys, &outpoints_hash);
             let shared_secret = receiver_calculate_shared_secret(tweak_data, b_scan);
 
             let scanned_outputs_received = sp_receiver

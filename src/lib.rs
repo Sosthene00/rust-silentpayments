@@ -5,7 +5,7 @@ mod error;
 pub mod receiving;
 #[cfg(feature = "sending")]
 pub mod sending;
-mod utils;
+pub mod utils;
 
 pub use crate::error::Error;
 

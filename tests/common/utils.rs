@@ -1,17 +1,16 @@
 use std::{
-    collections::HashSet,
     fs::File,
-    io::{Read, Write},
+    io::Read,
     str::FromStr,
 };
 
 use secp256k1::{
-    hashes::{sha256, Hash},
+    hashes::Hash,
     Message, PublicKey, Scalar, SecretKey, XOnlyPublicKey,
 };
 use serde_json::from_str;
 
-use super::structs::{Outpoint, OutputWithSignature, TestData};
+use super::structs::{OutputWithSignature, TestData};
 
 pub fn read_file() -> Vec<TestData> {
     let mut file = File::open("tests/resources/send_and_receive_test_vectors.json").unwrap();
@@ -20,16 +19,15 @@ pub fn read_file() -> Vec<TestData> {
     from_str(&contents).unwrap()
 }
 
-pub fn decode_outpoints(outpoints: &Vec<(String, u32)>) -> HashSet<Outpoint> {
+pub fn decode_outpoints(outpoints: &Vec<(String, u32)>) -> Vec<[u8;36]> {
     outpoints
         .iter()
-        .map(|(txid_str, vout)| Outpoint {
-            txid: hex::decode(txid_str)
-                .unwrap()
-                .as_slice()
-                .try_into()
-                .unwrap(),
-            vout: *vout,
+        .map(|(txid_str, vout)| {
+            let mut bytes = [0u8;36];
+            hex::decode_to_slice(txid_str, &mut bytes[..32]).unwrap();
+            bytes[..32].reverse();
+            bytes[32..].copy_from_slice(&vout.to_le_bytes());
+            bytes
         })
         .collect()
 }
@@ -101,11 +99,10 @@ pub fn get_A_sum_public_keys(input: &Vec<PublicKey>) -> PublicKey {
 
 pub fn calculate_tweak_data_for_recipient(
     input_pub_keys: &Vec<PublicKey>,
-    outpoints: &HashSet<Outpoint>,
+    outpoints_hash: &Scalar,
 ) -> PublicKey {
     let secp = secp256k1::Secp256k1::new();
     let A_sum = get_A_sum_public_keys(input_pub_keys);
-    let outpoints_hash = hash_outpoints(outpoints);
 
     A_sum.mul_tweak(&secp, &outpoints_hash).unwrap()
 }
@@ -124,30 +121,6 @@ pub fn receiver_calculate_shared_secret(
     let secp = secp256k1::Secp256k1::new();
 
     tweak_data.mul_tweak(&secp, &b_scan.into()).unwrap()
-}
-
-pub fn hash_outpoints(sending_data: &HashSet<Outpoint>) -> Scalar {
-    let mut outpoints: Vec<Vec<u8>> = vec![];
-
-    for outpoint in sending_data {
-        let txid = outpoint.txid;
-        let vout = outpoint.vout;
-
-        let mut bytes: Vec<u8> = Vec::new();
-        bytes.extend_from_slice(&txid);
-        bytes.reverse();
-        bytes.extend_from_slice(&vout.to_le_bytes());
-        outpoints.push(bytes);
-    }
-    outpoints.sort();
-
-    let mut engine = sha256::HashEngine::default();
-
-    for v in outpoints {
-        engine.write_all(&v).unwrap();
-    }
-
-    Scalar::from_be_bytes(sha256::Hash::from_engine(engine).into_inner()).unwrap()
 }
 
 pub fn verify_and_calculate_signatures(

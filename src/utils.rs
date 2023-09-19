@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::Write;
 
 #[cfg(feature = "receiving")]
 use crate::receiving::{Label, NULL_LABEL};
@@ -8,6 +9,19 @@ use secp256k1::{
     hashes::{sha256, Hash},
     PublicKey, Scalar, Secp256k1, SecretKey,
 };
+
+pub fn hash_outpoints(outpoints: &Vec<[u8;36]>) -> Result<Scalar> {
+    let mut engine = sha256::HashEngine::default();
+
+    let mut sorted_outpoints = outpoints.clone();
+    sorted_outpoints.sort();
+
+    for o in sorted_outpoints {
+        engine.write_all(&o)?;
+    }
+
+    Ok(Scalar::from_be_bytes(sha256::Hash::from_engine(engine).into_inner())?)
+}
 
 pub(crate) fn calculate_P_n(B_spend: &PublicKey, t_n: Scalar) -> Result<PublicKey> {
     let secp = Secp256k1::new();
