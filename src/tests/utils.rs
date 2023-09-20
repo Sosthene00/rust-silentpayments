@@ -8,12 +8,13 @@ use secp256k1::{
     hashes::Hash,
     Message, PublicKey, Scalar, SecretKey, XOnlyPublicKey,
 };
+
 use serde_json::from_str;
 
 use super::structs::{OutputWithSignature, TestData};
 
 pub fn read_file() -> Vec<TestData> {
-    let mut file = File::open("tests/resources/send_and_receive_test_vectors.json").unwrap();
+    let mut file = File::open("src/tests/send_and_receive_test_vectors.json").unwrap();
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
     from_str(&contents).unwrap()

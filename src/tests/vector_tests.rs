@@ -1,8 +1,4 @@
-#![allow(non_snake_case)]
-mod common;
-
-#[cfg(test)]
-mod tests {
+pub mod tests {
     use std::{
         collections::HashSet,
         str::FromStr,
@@ -11,14 +7,14 @@ mod tests {
     use secp256k1::{Secp256k1, SecretKey, Scalar};
 
     #[cfg(feature = "receiving")]
-    use silentpayments::receiving::Receiver;
+    use crate::receiving::Receiver;
 
     #[cfg(feature = "sending")]
-    use silentpayments::sending::generate_multiple_recipient_pubkeys;
+    use crate::sending::generate_multiple_recipient_pubkeys;
 
-    use silentpayments::utils::hash_outpoints;
+    use crate::utils::hash_outpoints;
 
-    use crate::common::{
+    use crate::tests::{
         structs::TestData,
         utils::{
             self, calculate_tweak_data_for_recipient, decode_input_pub_keys, decode_outpoints,
@@ -29,8 +25,7 @@ mod tests {
 
     const IS_TESTNET: bool = false;
 
-    #[test]
-    fn test_with_test_vectors() {
+    pub fn test_with_test_vectors() {
         let testdata = utils::read_file();
 
         for test in testdata {
