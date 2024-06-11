@@ -34,6 +34,28 @@ pub enum Network {
     Regtest,
 }
 
+impl Network {
+    pub fn from_core_arg(core_arg: &str) -> Result<Self> {
+        use Network::*;
+
+        let network = match core_arg {
+            "main" => Mainnet,
+            "test" | "signet" => Testnet,
+            "regtest" => Regtest,
+            _ => return Err(Error::ParseError(core_arg.to_owned())),
+        };
+        Ok(network)
+    }
+
+    pub fn to_core_arg(self) -> &'static str {
+        match self {
+            Network::Mainnet => "main",
+            Network::Testnet => "test",
+            Network::Regtest => "regtest",
+        }
+    }
+}
+
 /// A silent payment address struct that can be used to deserialize a silent payment address string.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct SilentPaymentAddress {
