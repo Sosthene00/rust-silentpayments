@@ -8,8 +8,8 @@ pub enum Error {
     InvalidSharedSecret(String),
     InvalidVin(String),
     ParseError(String),
-    Secp256k1Error(secp256k1::Error),
-    OutOfRangeError(secp256k1::scalar::OutOfRangeError),
+    Secp256k1Error(bitcoin::secp256k1::Error),
+    OutOfRangeError(bitcoin::secp256k1::scalar::OutOfRangeError),
     IOError(std::io::Error),
 }
 
@@ -43,14 +43,14 @@ impl From<bech32::Error> for Error {
     }
 }
 
-impl From<secp256k1::Error> for Error {
-    fn from(e: secp256k1::Error) -> Self {
+impl From<bitcoin::secp256k1::Error> for Error {
+    fn from(e: bitcoin::secp256k1::Error) -> Self {
         Error::Secp256k1Error(e)
     }
 }
 
-impl From<secp256k1::scalar::OutOfRangeError> for Error {
-    fn from(e: secp256k1::scalar::OutOfRangeError) -> Self {
+impl From<bitcoin::secp256k1::scalar::OutOfRangeError> for Error {
+    fn from(e: bitcoin::secp256k1::scalar::OutOfRangeError) -> Self {
         Error::OutOfRangeError(e)
     }
 }

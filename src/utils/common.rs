@@ -5,7 +5,7 @@ use crate::Error;
 use crate::Result;
 use bech32::{FromBase32, ToBase32};
 use bitcoin_hashes::Hash;
-use secp256k1::{PublicKey, Scalar, Secp256k1, SecretKey};
+use bitcoin::secp256k1::{PublicKey, Scalar, Secp256k1, SecretKey};
 use serde::{Deserialize, Serialize};
 
 pub(crate) fn calculate_t_n(ecdh_shared_secret: &PublicKey, k: u32) -> Result<SecretKey> {

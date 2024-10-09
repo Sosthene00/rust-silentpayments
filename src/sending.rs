@@ -8,7 +8,7 @@
 //! See the [tests on github](https://github.com/cygnet3/rust-silentpayments/blob/master/tests/vector_tests.rs)
 //! for a concrete example.
 
-use secp256k1::{PublicKey, Secp256k1, SecretKey, XOnlyPublicKey};
+use bitcoin::secp256k1::{PublicKey, Secp256k1, SecretKey, XOnlyPublicKey};
 use std::collections::HashMap;
 
 use crate::utils::common::calculate_t_n;

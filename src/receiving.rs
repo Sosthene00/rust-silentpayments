@@ -25,7 +25,7 @@ use crate::{
 };
 use bech32::ToBase32;
 use bimap::BiMap;
-use secp256k1::{Parity, PublicKey, Scalar, Secp256k1, SecretKey, XOnlyPublicKey};
+use bitcoin::{secp256k1::{Parity, PublicKey, Scalar, Secp256k1, SecretKey, XOnlyPublicKey}};
 use serde::{
     de::{self, SeqAccess, Visitor},
     ser::{SerializeStruct, SerializeTuple},
@@ -54,7 +54,7 @@ impl Label {
     }
 
     pub fn as_string(&self) -> String {
-        hex::encode(self.as_inner().to_be_bytes())
+        hex::encode(&self.as_inner().to_be_bytes())
     }
 }
 
@@ -131,7 +131,7 @@ impl Serialize for SerializablePubkey {
         S: serde::Serializer,
     {
         let mut seq = serializer.serialize_tuple(self.0.len())?;
-        for element in self.0.as_ref() {
+        for element in <[u8; 33] as AsRef<[u8]>>::as_ref(&self.0) {
             seq.serialize_element(element)?;
         }
         seq.end()
@@ -178,7 +178,7 @@ impl Serialize for SerializableBiMap {
     where
         S: serde::Serializer,
     {
-        let pairs: Vec<(String, SerializablePubkey)> = self
+        let pairs: HashMap<String, SerializablePubkey> = self
             .0
             .iter()
             .map(|(label, pubkey)| (label.as_string(), SerializablePubkey(pubkey.serialize())))
@@ -193,7 +193,7 @@ impl<'de> Deserialize<'de> for SerializableBiMap {
     where
         D: Deserializer<'de>,
     {
-        let pairs: Vec<(String, SerializablePubkey)> = Deserialize::deserialize(deserializer)?;
+        let pairs: HashMap<String, SerializablePubkey> = Deserialize::deserialize(deserializer)?;
         let mut bimap: BiMap<Label, PublicKey> = BiMap::new();
         for (string, ser_pubkey) in pairs {
             bimap.insert(
@@ -380,7 +380,7 @@ impl Receiver {
         ecdh_shared_secret: &PublicKey,
         pubkeys_to_check: Vec<XOnlyPublicKey>,
     ) -> Result<HashMap<Option<Label>, HashMap<XOnlyPublicKey, Scalar>>> {
-        let secp = secp256k1::Secp256k1::new();
+        let secp = bitcoin::secp256k1::Secp256k1::new();
 
         let mut found: HashMap<Option<Label>, HashMap<XOnlyPublicKey, Scalar>> = HashMap::new();
         let mut n_found: u32 = 0;

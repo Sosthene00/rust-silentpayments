@@ -2,7 +2,7 @@
 mod common;
 #[cfg(test)]
 mod tests {
-    use secp256k1::{PublicKey, Scalar, Secp256k1, SecretKey};
+    use bitcoin::secp256k1::{PublicKey, Scalar, Secp256k1, SecretKey};
     use silentpayments::{
         receiving::Label,
         utils::{

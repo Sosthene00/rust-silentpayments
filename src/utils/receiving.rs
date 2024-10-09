@@ -7,8 +7,8 @@ use crate::{
     Error, Result,
 };
 use bitcoin_hashes::{hash160, Hash};
-use secp256k1::{ecdh::shared_secret_point, Parity::Even, XOnlyPublicKey};
-use secp256k1::{PublicKey, SecretKey};
+use bitcoin::secp256k1::{ecdh::shared_secret_point, Parity::Even, XOnlyPublicKey};
+use bitcoin::secp256k1::{PublicKey, SecretKey};
 
 use super::{hash::calculate_input_hash, COMPRESSED_PUBKEY_SIZE, NUMS_H};
 
@@ -37,7 +37,7 @@ pub fn calculate_tweak_data(
     input_pub_keys: &[&PublicKey],
     outpoints_data: &[(String, u32)],
 ) -> Result<PublicKey> {
-    let secp = secp256k1::Secp256k1::verification_only();
+    let secp = bitcoin::secp256k1::Secp256k1::verification_only();
     let A_sum = PublicKey::combine_keys(input_pub_keys)?;
     let input_hash = calculate_input_hash(outpoints_data, A_sum)?;
 

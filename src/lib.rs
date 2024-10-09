@@ -16,14 +16,13 @@
 #![allow(dead_code, non_snake_case)]
 mod error;
 
-#[cfg(feature = "receiving")]
 pub mod receiving;
-#[cfg(feature = "sending")]
 pub mod sending;
 pub mod utils;
+pub mod constants;
 
 pub use bitcoin_hashes;
-pub use secp256k1;
+pub use bitcoin::secp256k1;
 
 pub use crate::error::Error;
 
