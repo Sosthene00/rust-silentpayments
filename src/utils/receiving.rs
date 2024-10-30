@@ -218,6 +218,10 @@ pub fn get_pubkey_from_input(
     Ok(None)
 }
 
+pub fn is_eligible(spk: &[u8]) -> bool {
+    is_p2pkh(spk) || is_p2sh(spk) || is_p2tr(spk) || is_p2wpkh(spk)
+}
+
 // script templates for inputs allowed in BIP352 shared secret derivation
 /// Check if a script_pub_key is taproot.
 pub fn is_p2tr(spk: &[u8]) -> bool {
