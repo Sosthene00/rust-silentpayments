@@ -21,8 +21,8 @@ pub mod sending;
 pub mod utils;
 pub mod constants;
 
-pub use bitcoin_hashes;
 pub use bitcoin::secp256k1;
+pub use bitcoin_hashes;
 
 pub use crate::error::Error;
 
