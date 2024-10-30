@@ -6,9 +6,9 @@ use crate::{
     },
     Error, Result,
 };
-use bitcoin_hashes::{hash160, Hash};
 use bitcoin::secp256k1::{ecdh::shared_secret_point, Parity::Even, XOnlyPublicKey};
 use bitcoin::secp256k1::{PublicKey, SecretKey};
+use bitcoin_hashes::{hash160, Hash};
 
 use super::{hash::calculate_input_hash, COMPRESSED_PUBKEY_SIZE, NUMS_H};
 
@@ -86,7 +86,7 @@ pub fn get_pubkey_from_input(
     script_sig: &[u8],
     txinwitness: &Vec<Vec<u8>>,
     script_pub_key: &[u8],
-) -> Result<Option<PublicKey>> {
+) -> Result<Option<(PublicKey, bool)>> {
     if is_p2pkh(script_pub_key) {
         match (txinwitness.is_empty(), script_sig.is_empty()) {
             (true, false) => {
@@ -95,7 +95,7 @@ pub fn get_pubkey_from_input(
                     if let Some(pubkey_bytes) = script_sig.get(i - COMPRESSED_PUBKEY_SIZE..i) {
                         let pubkey_hash = hash160::Hash::hash(pubkey_bytes);
                         if pubkey_hash.to_byte_array() == spk_hash {
-                            return Ok(Some(PublicKey::from_slice(pubkey_bytes)?));
+                            return Ok(Some((PublicKey::from_slice(pubkey_bytes)?, false)));
                         }
                     } else {
                         return Ok(None);
@@ -124,7 +124,7 @@ pub fn get_pubkey_from_input(
                             value.len() == COMPRESSED_PUBKEY_SIZE,
                         ) {
                             (Ok(pubkey), true) => {
-                                return Ok(Some(pubkey));
+                                return Ok(Some((pubkey, false)));
                             }
                             (_, false) => {
                                 return Ok(None);
@@ -154,7 +154,7 @@ pub fn get_pubkey_from_input(
                         value.len() == COMPRESSED_PUBKEY_SIZE,
                     ) {
                         (Ok(pubkey), true) => {
-                            return Ok(Some(pubkey));
+                            return Ok(Some((pubkey, false)));
                         }
                         (_, false) => {
                             return Ok(None);
@@ -197,11 +197,12 @@ pub fn get_pubkey_from_input(
                 }
 
                 // Return the pubkey from the script pubkey
-                return XOnlyPublicKey::from_slice(&script_pub_key[2..34])
+                let pubkey = XOnlyPublicKey::from_slice(&script_pub_key[2..34])
                     .map_err(Error::Secp256k1Error)
                     .map(|x_only_public_key| {
-                        Some(PublicKey::from_x_only_public_key(x_only_public_key, Even))
-                    });
+                        PublicKey::from_x_only_public_key(x_only_public_key, Even)
+                    })?;
+                return Ok(Some((pubkey, true)));
             }
             (_, false) => {
                 return Err(Error::InvalidVin(
