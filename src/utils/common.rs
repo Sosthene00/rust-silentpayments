@@ -4,9 +4,12 @@ use crate::utils::hash::SharedSecretHash;
 use crate::Error;
 use crate::Result;
 use bech32::{FromBase32, ToBase32};
-use bitcoin_hashes::Hash;
+use bimap::BiMap;
 use bitcoin::secp256k1::{PublicKey, Scalar, Secp256k1, SecretKey};
+use bitcoin_hashes::Hash;
 use serde::{Deserialize, Serialize};
+
+use libc::{c_void, c_uchar};
 
 pub(crate) fn calculate_t_n(ecdh_shared_secret: &PublicKey, k: u32) -> Result<SecretKey> {
     let hash = SharedSecretHash::from_ecdh_and_k(ecdh_shared_secret, k).to_byte_array();
@@ -164,5 +167,48 @@ impl From<SilentPaymentAddress> for String {
         data.insert(0, version);
 
         bech32::encode(hrp, data, bech32::Variant::Bech32m).unwrap()
+    }
+}
+
+pub type Label = [u8; 32];
+
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct LabelsStore(BiMap<PublicKey, Label>);
+
+impl LabelsStore {
+    pub fn new(map: BiMap<PublicKey, Label>) -> Self {
+        Self(map)
+    }
+}
+
+pub unsafe extern "C" fn label_lookup_callback(
+    label_pubkey_ptr: *const c_uchar,   // Pointer to the public key
+    label_context_ptr: *const c_void,   // Pointer to the context, which is LabelsStore
+) -> *const c_uchar {
+    // Check for null pointers to avoid dereferencing invalid memory
+    if label_pubkey_ptr.is_null() || label_context_ptr.is_null() {
+        return std::ptr::null();
+    }
+
+    // Cast the label_context_ptr back to a reference to LabelsStore
+    let label_store = &*(label_context_ptr as *const LabelsStore);
+
+    // Reconstruct the PublicKey from the label_pubkey_ptr
+    let label_pubkey = {
+        let pk_bytes = std::slice::from_raw_parts(label_pubkey_ptr as *const u8, 33);
+        match PublicKey::from_slice(pk_bytes) {
+            Ok(pk) => pk,
+            Err(_) => return std::ptr::null(),
+        }
+    };
+
+    // Look up the label associated with this public key in the LabelsStore
+    if let Some(label) = label_store.0.get_by_left(&label_pubkey) {
+        // If found, return a pointer to the label (32-byte array)
+        label.as_ptr() as *const c_uchar
+    } else {
+        // If not found, return a null pointer
+        std::ptr::null()
     }
 }
